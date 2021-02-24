@@ -9,8 +9,8 @@
 
 template <typename ...Args>
 void die(char const *format, Args ...args) {
-    fprintf(stderr, format, args...);
-    exit(EXIT_FAILURE);
+	fprintf(stderr, format, args...);
+	exit(EXIT_FAILURE);
 }
 
 inline std::string read_text_file(char const *path) {

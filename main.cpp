@@ -12,7 +12,7 @@ const auto MOUSE_ACCEL = 0.01f;
 const auto MOVEMENT_SPEED = 0.04f;
 
 struct {
-    GLFWwindow *window;
+	GLFWwindow *window;
 
 	std::vector<mesh> objects;
 	mesh *selected_object {nullptr};
@@ -25,7 +25,7 @@ struct {
 	shadow_renderer shadow_renderer;
 	color_renderer color_renderer;
 
-    bool show_gui {true};
+	bool show_gui {true};
 	ImGuizmo::OPERATION guizmo_op {ImGuizmo::TRANSLATE};
 	// TODO onject was selected / draw guizmo
 } G;
@@ -39,20 +39,20 @@ void on_key_input(GLFWwindow *win, int key, int scancode, int action, int mods) 
 		G.show_gui = !G.show_gui;
 	}
 
-    struct {
-        int key;
-        ImGuizmo::OPERATION op;
-    } guizmo_keys[] = {
-        { GLFW_KEY_1, ImGuizmo::TRANSLATE },
-        { GLFW_KEY_2, ImGuizmo::ROTATE },
-        { GLFW_KEY_3, ImGuizmo::SCALE },
-    };
-    for (auto k : guizmo_keys) {
-        if (key == k.key && action == GLFW_RELEASE) {
-            G.guizmo_op = k.op;
-            break;
-        }
-    }
+	struct {
+		int key;
+		ImGuizmo::OPERATION op;
+	} guizmo_keys[] = {
+		{ GLFW_KEY_1, ImGuizmo::TRANSLATE },
+		{ GLFW_KEY_2, ImGuizmo::ROTATE },
+		{ GLFW_KEY_3, ImGuizmo::SCALE },
+	};
+	for (auto k : guizmo_keys) {
+		if (key == k.key && action == GLFW_RELEASE) {
+			G.guizmo_op = k.op;
+			break;
+		}
+	}
 }
 
 void on_mouse_button(GLFWwindow *window, int button, int action, int mods) {
@@ -60,13 +60,13 @@ void on_mouse_button(GLFWwindow *window, int button, int action, int mods) {
 		return;
 	}
 
-    if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+	if (button == GLFW_MOUSE_BUTTON_RIGHT) {
 		glfwSetInputMode(window, GLFW_CURSOR,
 			action == GLFW_PRESS ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
 		return;
 	}
 	
-    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
 		double xpos;
 		double ypos;
 		glfwGetCursorPos(window, &xpos, &ypos);
@@ -75,7 +75,7 @@ void on_mouse_button(GLFWwindow *window, int button, int action, int mods) {
 
 		G.default_fbo.bind_for_rendering();
 		GLint index;
-        glReadPixels(xpos, ypos, 1, 1, GL_STENCIL_INDEX, GL_INT, &index);
+		glReadPixels(xpos, ypos, 1, 1, GL_STENCIL_INDEX, GL_INT, &index);
 
 		G.selected_object = nullptr;
 		for (auto &obj : G.objects) {
@@ -84,17 +84,17 @@ void on_mouse_button(GLFWwindow *window, int button, int action, int mods) {
 				break;
 			}
 		}
-    }
+	}
 }
 
 void on_window_resize(GLFWwindow *window, int width, int height) {
-    // TODO
-    // set width and height of default framebuffer
-    // call calc_projection() on active camera
+	// TODO
+	// set width and height of default framebuffer
+	// call calc_projection() on active camera
 }
 
 GLFWwindow *initialize(int width, int height, char const *title) {
-    if (!glfwInit()) {
+	if (!glfwInit()) {
 		die("could not init glfw\n");
 	}
 
@@ -114,7 +114,7 @@ GLFWwindow *initialize(int width, int height, char const *title) {
 
 	glfwSetKeyCallback(window, on_key_input);
 	glfwSetMouseButtonCallback(window, on_mouse_button);
-    glfwSetFramebufferSizeCallback(window, on_window_resize);
+	glfwSetFramebufferSizeCallback(window, on_window_resize);
 
 	if (glfwRawMouseMotionSupported()) {
 		glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, true);
@@ -125,19 +125,19 @@ GLFWwindow *initialize(int width, int height, char const *title) {
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init();
 
-    return window;
+	return window;
 }
 
 void draw_gui() {
-    ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
 
-    ImGui::Begin("Press G to toggle this window");
+	ImGui::Begin("Press G to toggle this window");
 
-    ImGui::ColorEdit3("Ambient Light", G.color_renderer.ambient_light);
-    ImGui::ColorEdit3("Diffuse Light", G.color_renderer.diffuse_light);
-    ImGui::Separator(); // TODO remove
+	ImGui::ColorEdit3("Ambient Light", G.color_renderer.ambient_light);
+	ImGui::ColorEdit3("Diffuse Light", G.color_renderer.diffuse_light);
+	ImGui::Separator(); // TODO remove
 
 	if (G.selected_object) {
 		ImGui::ColorEdit3("Object Color", G.selected_object->color);
@@ -186,12 +186,12 @@ void draw_gui() {
 		}
 	}
 
-    ImGui::End();
+	ImGui::End();
 
 	if (G.selected_object) {
-        auto const *view = (float*)G.active_camera->view_matrix;
-        auto const *proj = (float*)G.active_camera->proj_matrix;
-        auto *model = (float*)G.selected_object->model_matrix;
+		auto const *view = (float*)G.active_camera->view_matrix;
+		auto const *proj = (float*)G.active_camera->proj_matrix;
+		auto *model = (float*)G.selected_object->model_matrix;
 		auto mode = ImGuizmo::LOCAL;
 		if (G.guizmo_op == ImGuizmo::TRANSLATE) {
 			mode = ImGuizmo::WORLD;
@@ -199,10 +199,10 @@ void draw_gui() {
 
 		ImGuizmo::BeginFrame();
 		ImGuizmo::SetRect(0, 0, G.default_fbo.width, G.default_fbo.height);
-        ImGuizmo::Manipulate(view, proj, G.guizmo_op, mode, model);
+		ImGuizmo::Manipulate(view, proj, G.guizmo_op, mode, model);
 	}
 
-    ImGui::Render();
+	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
@@ -230,11 +230,11 @@ void apply_camera_movement(camera &cam) {
 		int key;
 		vec3 dir;
 	} bindings[] = {
-		{GLFW_KEY_W,            { 0,  0,  1}},
-		{GLFW_KEY_A,            {-1,  0,  0}},
-		{GLFW_KEY_S,            { 0,  0, -1}},
-		{GLFW_KEY_D,            { 1,  0,  0}},
-		{GLFW_KEY_SPACE,        { 0,  1,  0}},
+		{GLFW_KEY_W,			{ 0,  0,  1}},
+		{GLFW_KEY_A,			{-1,  0,  0}},
+		{GLFW_KEY_S,			{ 0,  0, -1}},
+		{GLFW_KEY_D,			{ 1,  0,  0}},
+		{GLFW_KEY_SPACE,		{ 0,  1,  0}},
 		{GLFW_KEY_LEFT_CONTROL, { 0, -1,  0}},
 	};
 
@@ -255,13 +255,13 @@ void apply_camera_movement(camera &cam) {
 		s * local_movement[0] - c * local_movement[2]
 	});
 	
-    cam.calc_view();
+	cam.calc_view();
 }
 
 int main() {
 	const int win_width = 850;
 	const int win_height = 650;
-    G.window = initialize(win_width, win_height, "VWA Demo");
+	G.window = initialize(win_width, win_height, "VWA Demo");
 
 	G.objects = {
 		mesh::load_stl("models/things.stl", vec3{0.5, 0.0, 0.0}),
@@ -285,10 +285,10 @@ int main() {
 	program shadow_prog("shaders/shadow.vs", "shaders/shadow.fs");
 	G.color_renderer.shadow_camera = &G.shadow_camera;
 	G.color_renderer.shadow_fbo = &shadow_fbo;
-    
-    while (!glfwWindowShouldClose(G.window)) {
-        glfwPollEvents();
-        apply_camera_movement(*G.active_camera);
+	
+	while (!glfwWindowShouldClose(G.window)) {
+		glfwPollEvents();
+		apply_camera_movement(*G.active_camera);
 
 		shadow_fbo.bind_for_rendering();
 		G.shadow_renderer.draw(shadow_prog, G.shadow_camera, G.objects);
