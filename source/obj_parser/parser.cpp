@@ -21,8 +21,7 @@ static bool isNumeric(int c)
 }
 
 struct Material {
-	// TODO default color.
-	glm::vec3 diffuse {0.0f, 1.0f, 0.0f};
+	glm::vec3 diffuse {0.8f, 0.8f, 0.8f};
 };
 
 using MaterialLibrary = std::unordered_map<std::string, Material>;
