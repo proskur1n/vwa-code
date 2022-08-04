@@ -4,6 +4,7 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include <iostream>
+#include <cstdlib>
 #include "program.hh"
 #include "mesh.hh"
 #include "camera.hh"
@@ -63,21 +64,21 @@ class Application {
 	int winHeight {750};
 	Context window {winWidth, winHeight, "Shadow Mapping"};
 
-	Camera camera {glm::vec3(27.0f, 22.0f, 8.0f), glm::vec3(0.0f)};
-
-	Program normalPass {"source/shaders/normalPass.vert", "source/shaders/normalPass.frag"};
-	ShadowMap shadowMap {glm::vec3(-9.0f, 14.0f, 5.0f), glm::vec3(0.0f, 0.0f, 0.0f)};
-	std::vector<Mesh> meshes {loadMeshesFromFile("assets/mammoth.obj")};
+	Camera camera {glm::vec3(9.0f, 9.5f, 8.5f), glm::vec3(0.0f)};
 	Camera *activeCamera {&camera};
+	Program normalPass {"source/shaders/normalPass.vert", "source/shaders/normalPass.frag"};
+	std::vector<Mesh> meshes {loadMeshesFromFile("assets/final.obj")};
+
+	ShadowMap shadowMap {glm::vec3(-8.0f, 15.0f, 10.0f), glm::vec3(0.0f)};
+
 	int panelWidth {290};
 	bool animateLight {false};
 	bool lookAround {false};
 
-	// TODO: Choose better default values.
-	int shadowQuality {2};
+	int shadowQuality {3};
+	float filterRadius {0.007f};
 	bool enablePCSS {true};
-	float filterRadius {0.006f};
-	float lightWidth {0.5f};
+	float lightWidth {0.65f};
 public:
 	Application()
 	{
@@ -189,8 +190,7 @@ private:
 	{
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(0, 0, winWidth - panelWidth, winHeight);
-		// glClearColor(0.48f, 0.53f, 0.55f, 1.0f);
-		glClearColor(0.42f, 0.44f, 0.47f, 1.0f);
+		glClearColor(0.53f, 0.58f, 0.66f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glCullFace(GL_BACK);
 
@@ -210,9 +210,6 @@ private:
 		normalPass.set("uShadowQuality", shadowQuality);
 		normalPass.set("uFilterRadius", filterRadius);
 		normalPass.set("uEnablePCSS", enablePCSS);
-
-		// TODO
-		// util::print(activeCamera->position);
 
 		for (auto const &mesh: meshes) {
 			normalPass.set("uModel", mesh.getModelMatrix());

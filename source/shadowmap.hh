@@ -16,7 +16,8 @@ public:
 		: camera(position, lookAt)
 	{
 		// TODO
-		camera.nearPlane = 9.0f;
+		camera.nearPlane = 10.0f;
+		camera.farPlane = 40.0f;
 		camera.updateProjectionMatrix();
 
 		depthAttachment = createDepthTexture(resolution, resolution);
