@@ -67,7 +67,7 @@ class Application {
 	Camera camera {glm::vec3(9.0f, 9.5f, 8.5f), glm::vec3(0.0f)};
 	Camera *activeCamera {&camera};
 	Program normalPass {"source/shaders/normalPass.vert", "source/shaders/normalPass.frag"};
-	std::vector<Mesh> meshes {loadMeshesFromFile("assets/final.obj")};
+	std::vector<Mesh> meshes {loadMeshesFromFile("assets/mammoth.obj")};
 
 	ShadowMap shadowMap {glm::vec3(-8.0f, 15.0f, 10.0f), glm::vec3(0.0f)};
 
