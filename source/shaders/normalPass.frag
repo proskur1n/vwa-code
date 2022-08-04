@@ -76,7 +76,6 @@ float PCF(vec3 uvz, float filterRadius) {
 	float sum = 0.0;
 	int sampleCount = int(pow(2, 3 + uShadowQuality));
 	for (int i = 0; i < sampleCount; ++i) {
-		// Hopefully, your glsl compiler will swap switch and for-statements :/
 		vec2 offset;
 		switch (uShadowQuality) {
 		case 0: offset = POISSON8[i];
