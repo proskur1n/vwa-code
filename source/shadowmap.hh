@@ -15,7 +15,6 @@ public:
 	ShadowMap(glm::vec3 const &position, glm::vec3 const &lookAt)
 		: camera(position, lookAt)
 	{
-		// TODO
 		camera.nearPlane = 10.0f;
 		camera.farPlane = 40.0f;
 		camera.updateProjectionMatrix();

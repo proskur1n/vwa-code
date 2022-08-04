@@ -71,7 +71,7 @@ class Application {
 
 	ShadowMap shadowMap {glm::vec3(-8.0f, 15.0f, 10.0f), glm::vec3(0.0f)};
 
-	int panelWidth {290};
+	int panelWidth {320};
 	bool animateLight {false};
 	bool lookAround {false};
 
@@ -234,49 +234,43 @@ private:
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 	}
 
-	// TODO inline?
 	void renderGuiItems(float deltaTime)
 	{
-		{
-			ImGui::SliderInt("Quality", &shadowQuality, 0, 3);
-			if (ImGui::RadioButton("PCF", !enablePCSS)) {
-				enablePCSS = false;
-			}
-			if (ImGui::RadioButton("PCSS", enablePCSS)) {
-				enablePCSS = true;
-			}
-			if (enablePCSS) {
-				ImGui::SliderFloat("Light width", &lightWidth, 0.1f, 1.3f);
-				// ImGui::DragFloat("Light width", &lightWidth, 0.01f);
-			} else {
-				ImGui::SliderFloat("Filter radius", &filterRadius, 0.0f, 0.03f);
-			}
+		ImGui::SliderInt("Quality", &shadowQuality, 0, 3);
+		if (ImGui::RadioButton("PCF", !enablePCSS)) {
+			enablePCSS = false;
 		}
-		ImGui::Separator();
-		{
-			bool isPrimary = activeCamera == &camera;
-			if (ImGui::RadioButton("Primary camera", isPrimary)) {
-				activeCamera = &camera;
-			}
-			if (ImGui::RadioButton("Shadow camera", !isPrimary)) {
-				activeCamera = &shadowMap.getCamera();
-			}
+		if (ImGui::RadioButton("PCSS", enablePCSS)) {
+			enablePCSS = true;
+		}
+		if (enablePCSS) {
+			ImGui::SliderFloat("Light width", &lightWidth, 0.1f, 1.4f);
+		} else {
+			ImGui::SliderFloat("Filter radius", &filterRadius, 0.0f, 0.03f);
+		}
 
-			bool changed = false;
-			changed |= ImGui::SliderFloat("FOV", &activeCamera->fovY, 0.1f, 3.14f);
-			changed |= ImGui::SliderFloat("Near plane", &activeCamera->nearPlane, 0.1f, 10.0f);
-			changed |= ImGui::SliderFloat("Far plane", &activeCamera->farPlane, 20.0f, 100.0f);
-			if (changed) {
-				activeCamera->updateProjectionMatrix();
-			}
-
-			ImGui::Checkbox("Animate light", &animateLight);
-		}
 		ImGui::Separator();
-		{
-			ImGui::Text("FPS: %d", int(1.0f / deltaTime));
-			ImGui::Text("Delta time: %f ms", deltaTime * 1000);
+
+		bool isPrimary = activeCamera == &camera;
+		if (ImGui::RadioButton("Primary camera", isPrimary)) {
+			activeCamera = &camera;
 		}
+		if (ImGui::RadioButton("Shadow camera", !isPrimary)) {
+			activeCamera = &shadowMap.getCamera();
+		}
+		bool changed = false;
+		changed |= ImGui::SliderFloat("FOV", &activeCamera->fovY, 0.1f, 3.14f);
+		changed |= ImGui::SliderFloat("Near plane", &activeCamera->nearPlane, 0.1f, 10.0f);
+		changed |= ImGui::SliderFloat("Far plane", &activeCamera->farPlane, 20.0f, 100.0f);
+		if (changed) {
+			activeCamera->updateProjectionMatrix();
+		}
+		ImGui::Checkbox("Animate light", &animateLight);
+
+		ImGui::Separator();
+
+		ImGui::Text("FPS: %d", int(1.0f / deltaTime));
+		ImGui::Text("Delta time: %f ms", deltaTime * 1000);
 	}
 
 	static void onKeyInput(GLFWwindow *window, int key, int scancode, int action, int mods)
