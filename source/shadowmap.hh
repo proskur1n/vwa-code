@@ -10,7 +10,7 @@ class ShadowMap {
 	int resolution {1024};
 	GLuint depthAttachment {0};
 	GLuint framebuffer {0};
-	Program program {"shaders/shadowPass.vert", "shaders/shadowPass.frag"};
+	Program program {"source/shaders/shadowPass.vert", "source/shaders/shadowPass.frag"};
 public:
 	ShadowMap(glm::vec3 const &position, glm::vec3 const &lookAt)
 		: camera(position, lookAt)
@@ -55,9 +55,8 @@ public:
 		program.set("uProj", camera.projMatrix);
 
 		for (auto const &mesh: meshes) {
-			program.set("uModel", mesh.modelMatrix);
-			glBindVertexArray(mesh.vao);
-			glDrawArrays(GL_TRIANGLES, 0, mesh.vertexCount);
+			program.set("uModel", mesh.getModelMatrix());
+			mesh.drawArrays();
 		}
 	}
 

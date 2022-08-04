@@ -65,7 +65,7 @@ class Application {
 
 	Camera camera {glm::vec3(27.0f, 22.0f, 8.0f), glm::vec3(0.0f)};
 
-	Program normalPass {"shaders/normalPass.vert", "shaders/normalPass.frag"};
+	Program normalPass {"source/shaders/normalPass.vert", "source/shaders/normalPass.frag"};
 	ShadowMap shadowMap {glm::vec3(-9.0f, 14.0f, 5.0f), glm::vec3(0.0f, 0.0f, 0.0f)};
 	std::vector<Mesh> meshes {loadMeshesFromFile("assets/mammoth.obj")};
 	Camera *activeCamera {&camera};
@@ -215,9 +215,8 @@ private:
 		// util::print(activeCamera->position);
 
 		for (auto const &mesh: meshes) {
-			normalPass.set("uModel", mesh.modelMatrix);
-			glBindVertexArray(mesh.vao);
-			glDrawArrays(GL_TRIANGLES, 0, mesh.vertexCount);
+			normalPass.set("uModel", mesh.getModelMatrix());
+			mesh.drawArrays();
 		}
 	}
 
