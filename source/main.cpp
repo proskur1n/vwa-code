@@ -3,10 +3,12 @@
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
+#include <iostream>
 #include "program.hh"
 #include "mesh.hh"
 #include "camera.hh"
 #include "obj_parser/parser.hh"
+#include "shadowmap.hh"
 
 void onGlfwError(int code, char const *description)
 {
@@ -57,15 +59,25 @@ public:
 };
 
 class Application {
-	int width {640};
-	int height {480};
-	Context window {width, height, "Shadow Mapping"};
+	int winWidth {1260};
+	int winHeight {750};
+	Context window {winWidth, winHeight, "Shadow Mapping"};
 
-	Camera camera {glm::vec3(5.0f, 5.0f, 5.0f), glm::vec3(0.0f)};
+	Camera camera {glm::vec3(27.0f, 22.0f, 8.0f), glm::vec3(0.0f)};
+
 	Program normalPass {"shaders/normalPass.vert", "shaders/normalPass.frag"};
+	ShadowMap shadowMap {glm::vec3(-9.0f, 14.0f, 5.0f), glm::vec3(0.0f, 0.0f, 0.0f)};
+	std::vector<Mesh> meshes {loadMeshesFromFile("assets/mammoth.obj")};
+	Camera *activeCamera {&camera};
+	int panelWidth {290};
+	bool animateLight {false};
+	bool lookAround {false};
 
-	// TODO path
-	std::vector<Mesh> meshes {loadMeshesFromFile("/home/andrey/NaturePack/untitled.obj")};
+	// TODO: Choose better default values.
+	int shadowQuality {2};
+	bool enablePCSS {true};
+	float filterRadius {0.006f};
+	float lightWidth {0.5f};
 public:
 	Application()
 	{
@@ -78,25 +90,39 @@ public:
 			glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, true);
 		}
 
-		camera.setAspectRatio(width, height);
+		// Sets the correct projection matrix.
+		onFramebufferResize(window, winWidth, winHeight);
 
-		glEnable(GL_DEPTH_TEST);
-		// TODO
-		glEnable(GL_CULL_FACE);
+		IMGUI_CHECKVERSION();
+		ImGui::CreateContext();
+		ImGuiStyle &style = ImGui::GetStyle();
+		style.Colors[ImGuiCol_Border].w = 0.0f;
+		style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+		ImGui_ImplGlfw_InitForOpenGL(window, true);
+		ImGui_ImplOpenGL3_Init("#version 330 core");
 	}
 
 	void enterMainLoop()
 	{
+		glEnable(GL_DEPTH_TEST);
+		glEnable(GL_CULL_FACE);
+
 		double prevTime = glfwGetTime();
 		while (!glfwWindowShouldClose(window)) {
 			double time = glfwGetTime();
-			double deltaTime = time - prevTime;
+			auto deltaTime = (float) (time - prevTime);
 			prevTime = time;
 
-			glfwPollEvents();
-			handleUserInput((float) deltaTime);
+			if (animateLight) {
+				shadowMap.getCamera().animate(deltaTime);
+			}
 
+			glfwPollEvents();
+			handleUserInput(deltaTime);
+
+			shadowMap.renderShadowPass(meshes);
 			renderNormalPass();
+			renderGui(deltaTime);
 			glfwSwapBuffers(window);
 		}
 	}
@@ -134,7 +160,7 @@ private:
 
 		static double prevMouseX = mouseX;
 		static double prevMouseY = mouseY;
-		if (isMouseDown(GLFW_MOUSE_BUTTON_RIGHT)) {
+		if (lookAround && isMouseDown(GLFW_MOUSE_BUTTON_RIGHT)) {
 			mouseDelta.x = float(mouseX - prevMouseX);
 			mouseDelta.y = float(mouseY - prevMouseY);
 		}
@@ -144,8 +170,9 @@ private:
 		if (glm::length(displacement) > 0.0f) {
 			displacement = glm::normalize(displacement);
 		}
-		camera.applyUserInput(displacement * SPEED * deltaTime,
-		                      mouseDelta * SENSITIVITY * deltaTime);
+		displacement *= SPEED * deltaTime;
+		mouseDelta *= SENSITIVITY * deltaTime;
+		activeCamera->applyUserInput(displacement, mouseDelta);
 	}
 
 	[[nodiscard]] bool isPressed(int key) const
@@ -160,53 +187,127 @@ private:
 
 	void renderNormalPass() const
 	{
-		glViewport(0, 0, width, height);
-		// TODO
-		double f = 1.3;
-		glClearColor(0.62 / f, 0.75 / f, 0.78 / f, 1.0);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glViewport(0, 0, winWidth - panelWidth, winHeight);
+		// glClearColor(0.48f, 0.53f, 0.55f, 1.0f);
+		glClearColor(0.42f, 0.44f, 0.47f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glCullFace(GL_BACK);
 
+		Camera const &shadowCamera = shadowMap.getCamera();
+		GLuint depthAttachment = shadowMap.getDepthAttachment();
 		normalPass.use();
-		normalPass.set("uView", camera.viewMatrix);
-		normalPass.set("uProj", camera.projMatrix);
+		normalPass.set("uView", activeCamera->viewMatrix);
+		normalPass.set("uProj", activeCamera->projMatrix);
+		normalPass.set("uLightView", shadowCamera.viewMatrix);
+		normalPass.set("uLightProj", shadowCamera.projMatrix);
+		normalPass.set("uLightPosition", shadowCamera.position);
+		normalPass.set("uLightNearPlane", shadowCamera.nearPlane);
+		normalPass.set("uLightFarPlane", shadowCamera.farPlane);
+		normalPass.set("uLightWidthUV", lightWidth / shadowCamera.getFrustumWidth());
+		normalPass.setTexture("uShadowSampler", 0, depthAttachment);
+		normalPass.setTexture("uDepthBuffer", 0, depthAttachment);
+		normalPass.set("uShadowQuality", shadowQuality);
+		normalPass.set("uFilterRadius", filterRadius);
+		normalPass.set("uEnablePCSS", enablePCSS);
 
-		for (Mesh const &mesh: meshes) {
+		// TODO
+		// util::print(activeCamera->position);
+
+		for (auto const &mesh: meshes) {
 			normalPass.set("uModel", mesh.modelMatrix);
 			glBindVertexArray(mesh.vao);
 			glDrawArrays(GL_TRIANGLES, 0, mesh.vertexCount);
 		}
+	}
 
+	void renderGui(float deltaTime)
+	{
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
+		ImGui::SetNextWindowPos({float(winWidth - panelWidth), 0});
+		ImGui::SetNextWindowSize({float(panelWidth), float(winHeight)});
+		if (ImGui::Begin("Parameters", nullptr, ImGuiWindowFlags_NoDecoration)) {
+			renderGuiItems(deltaTime);
+		}
+		ImGui::End();
+
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+	}
+
+	// TODO inline?
+	void renderGuiItems(float deltaTime)
+	{
+		{
+			ImGui::SliderInt("Quality", &shadowQuality, 0, 3);
+			if (ImGui::RadioButton("PCF", !enablePCSS)) {
+				enablePCSS = false;
+			}
+			if (ImGui::RadioButton("PCSS", enablePCSS)) {
+				enablePCSS = true;
+			}
+			if (enablePCSS) {
+				ImGui::SliderFloat("Light width", &lightWidth, 0.1f, 1.3f);
+				// ImGui::DragFloat("Light width", &lightWidth, 0.01f);
+			} else {
+				ImGui::SliderFloat("Filter radius", &filterRadius, 0.0f, 0.03f);
+			}
+		}
+		ImGui::Separator();
+		{
+			bool isPrimary = activeCamera == &camera;
+			if (ImGui::RadioButton("Primary camera", isPrimary)) {
+				activeCamera = &camera;
+			}
+			if (ImGui::RadioButton("Shadow camera", !isPrimary)) {
+				activeCamera = &shadowMap.getCamera();
+			}
+
+			bool changed = false;
+			changed |= ImGui::SliderFloat("FOV", &activeCamera->fovY, 0.1f, 3.14f);
+			changed |= ImGui::SliderFloat("Near plane", &activeCamera->nearPlane, 0.1f, 10.0f);
+			changed |= ImGui::SliderFloat("Far plane", &activeCamera->farPlane, 20.0f, 100.0f);
+			if (changed) {
+				activeCamera->updateProjectionMatrix();
+			}
+
+			ImGui::Checkbox("Animate light", &animateLight);
+		}
+		ImGui::Separator();
+		{
+			ImGui::Text("FPS: %d", int(1.0f / deltaTime));
+			ImGui::Text("Delta time: %f ms", deltaTime * 1000);
+		}
 	}
 
 	static void onKeyInput(GLFWwindow *window, int key, int scancode, int action, int mods)
 	{
-		// TODO
 	}
 
 	static void onMouseButton(GLFWwindow *window, int button, int action, int mods)
 	{
-		if (action == GLFW_PRESS) {
-			switch (button) {
-			case GLFW_MOUSE_BUTTON_RIGHT:
+		Application *app = getApplication(window);
+		if (action == GLFW_PRESS && !ImGui::GetIO().WantCaptureMouse) {
+			if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+				app->lookAround = true;
 				glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-				break;
 			}
 		}
-		if (action == GLFW_RELEASE) {
-			switch (button) {
-			case GLFW_MOUSE_BUTTON_RIGHT:
-				glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-				break;
-			}
+		if (action == GLFW_RELEASE && button == GLFW_MOUSE_BUTTON_RIGHT) {
+			app->lookAround = false;
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 		}
 	}
 
 	static void onFramebufferResize(GLFWwindow *window, int width, int height)
 	{
 		Application *app = getApplication(window);
-		app->width = width;
-		app->height = height;
-		app->camera.setAspectRatio(width, height);
+		app->winWidth = width;
+		app->winHeight = height;
+		app->camera.setAspectRatio(width - app->panelWidth, height);
 	}
 
 	[[nodiscard]] static Application *getApplication(GLFWwindow *window)
@@ -215,78 +316,6 @@ private:
 	}
 };
 
-void HandleUserInput(GLFWwindow *mWindow, Camera &mCamera)
-{
-	static glm::vec2 prevMousePos = mCamera.position;
-	float const SPEED = 15.5;
-	float const SENSITIVITY = 2.0;
-	float deltaTime = 0.01;
-
-	struct {
-		int key;
-		glm::vec3 dir;
-	} bindings[] = {
-		{GLFW_KEY_W,            {0,  0,  -1}},
-		{GLFW_KEY_A,            {-1, 0,  0}},
-		{GLFW_KEY_S,            {0,  0,  1}},
-		{GLFW_KEY_D,            {1,  0,  0}},
-		{GLFW_KEY_SPACE,        {0,  1,  0}},
-		{GLFW_KEY_LEFT_CONTROL, {0,  -1, 0}},
-	};
-
-	glm::vec3 displacement {0, 0, 0};
-	for (auto &b: bindings) {
-		if (glfwGetKey(mWindow, b.key) == GLFW_PRESS) {
-			displacement += b.dir * SPEED * deltaTime;
-		}
-	}
-
-	double mouseX;
-	double mouseY;
-	glfwGetCursorPos(mWindow, &mouseX, &mouseY);
-	glm::vec2 mouse {mouseX, mouseY};
-	glm::vec2 deltaMouse {0, 0};
-	if (glfwGetMouseButton(mWindow, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
-		deltaMouse = (mouse - prevMousePos) * SENSITIVITY * deltaTime;
-	}
-	prevMousePos = mouse;
-
-	mCamera.applyUserInput(displacement, deltaMouse);
-}
-
-void DrawGUI()
-{
-	ImGui_ImplOpenGL3_NewFrame();
-	ImGui_ImplGlfw_NewFrame();
-	ImGui::NewFrame();
-
-	ImGuiWindowFlags flags = 0;
-	flags |= ImGuiWindowFlags_NoDecoration;
-	bool show = true;
-	ImGui::Begin("##Options", &show, flags);
-	{
-		ImGui::Button("My cool Button");
-	}
-	ImGui::End();
-	// if (!show) {
-	// 	glfwSetWindowShouldClose(window, true);
-	// }
-
-	ImGui::Render();
-	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-	ImGuiIO &io = ImGui::GetIO();
-	// Update and Render additional Platform Windows
-	// (Platform functions may change the current OpenGL context, so we save/restore it to make it easier to paste this code elsewhere.
-	//  For this specific demo app we could also call glfwMakeContextCurrent(window) directly)
-	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-		GLFWwindow *backup_current_context = glfwGetCurrentContext();
-		ImGui::UpdatePlatformWindows();
-		ImGui::RenderPlatformWindowsDefault();
-		glfwMakeContextCurrent(backup_current_context);
-	}
-}
-
 int main()
 {
 	try {
@@ -294,39 +323,7 @@ int main()
 		app.enterMainLoop();
 	} catch (std::string &message) {
 		std::cerr << message << '\n';
-		return 1;
+		return EXIT_FAILURE;
 	}
-	return 0;
-
-	// TODO: Do not forget to remove this.
-	// IMGUI_CHECKVERSION();
-	// ImGui::CreateContext();
-	// ImGuiIO &io = ImGui::GetIO();
-	// (void) io;
-	// io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
-	// io.ConfigFlags |= ImGuiViewportFlags_TopMost;
-	// io.ConfigViewportsNoAutoMerge = true;
-	// io.ConfigViewportsNoTaskBarIcon = true;
-
-	// io.ConfigFlags |= ImGuiConfigFl
-	// io.ConfigWindowsMoveFromTitleBarOnly = true;
-
-	// io.ConfigWindowsResizeFromEdges = false;
-
-	// io.ConfigViewportsNoDecoration = false;
-
-	// io.ConfigFlags |= ImGuiViewportFlags_NoDecoration;
-	// ImGuiViewport::Flags |= ImGuiViewportFlags_NoDecoration;
-
-	// ImGui::StyleColorsClassic();
-
-	// ImGuiStyle &style = ImGui::GetStyle();
-	// if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-	// 	// style.WindowRounding = 0.0f;
-	// 	// style.Colors[ImGuiCol_WindowBg].w = 1.0f;
-	// 	style.Colors[ImGuiCol_Border].w = 0.0f;
-	// }
-
-	// ImGui_ImplGlfw_InitForOpenGL(window, true);
-	// ImGui_ImplOpenGL3_Init("#version 330 core");
+	return EXIT_SUCCESS;
 }
