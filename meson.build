@@ -1,4 +1,4 @@
-project('vwa-code', 'cpp', default_options: ['cpp_std=c++17', 'build.cpp_std=c++17'])
+project('vwa-code', 'cpp', 'c', default_options: ['cpp_std=c++17', 'build.cpp_std=c++17'])
 
 glfw_dep = dependency('glfw3')
 glad_dep = subproject('glad').get_variable('glad_dep')

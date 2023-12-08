@@ -3,7 +3,6 @@
 #include <unordered_map>
 #include <glm/vec3.hpp>
 #include "parser.hh"
-#include "mesh.hh"
 #include "util.hh"
 
 static glm::vec3 readVector3(std::istream &stream)
@@ -18,6 +17,16 @@ static glm::vec3 readVector3(std::istream &stream)
 static bool isNumeric(int c)
 {
 	return (c >= '0' && c <= '9') || c == '-';
+}
+
+static std::istream &whitespace(std::istream &stream)
+{
+	// Raw std::ws is unusable because it sets failbit if stream is already in
+	// eof state before it could read any characters.
+	if (!stream.eof()) {
+		stream >> std::ws;
+	}
+	return stream;
 }
 
 struct Material {
@@ -44,7 +53,7 @@ static MaterialLibrary parseMtlLibrary(std::filesystem::path const &path)
 			result[materialName].diffuse = readVector3(file);
 		}
 		file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-		file >> std::ws;
+		file >> whitespace;
 	}
 
 	if (file.fail()) {
@@ -78,7 +87,6 @@ static Vertex readVertex(
 	return {positions[indices[0]], normals[indices[2]], material.diffuse};
 }
 
-
 std::vector<Mesh> loadMeshesFromFile(std::filesystem::path const &path)
 {
 	// Append a dummy value, because OBJ indexes begin at 1.
@@ -106,7 +114,7 @@ std::vector<Mesh> loadMeshesFromFile(std::filesystem::path const &path)
 			Vertex first = readVertex(file, positions, normals, currentMaterial);
 			Vertex last = readVertex(file, positions, normals, currentMaterial);
 
-			file >> std::ws;
+			file >> whitespace;
 			while (file.good() && isNumeric(file.peek())) {
 				Vertex curr = readVertex(file, positions, normals, currentMaterial);
 
@@ -115,7 +123,7 @@ std::vector<Mesh> loadMeshesFromFile(std::filesystem::path const &path)
 				meshVertices.push_back(curr);
 
 				last = curr;
-				file >> std::ws;
+				file >> whitespace;
 			}
 		} else if (token == "mtllib") {
 			std::string lib;
@@ -134,7 +142,7 @@ std::vector<Mesh> loadMeshesFromFile(std::filesystem::path const &path)
 		if (token != "f") {
 			file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 		}
-		file >> std::ws;
+		file >> whitespace;
 	}
 	if (!meshVertices.empty()) {
 		meshes.emplace_back(meshVertices);
